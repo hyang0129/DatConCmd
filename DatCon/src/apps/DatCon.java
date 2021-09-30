@@ -59,11 +59,14 @@ import javax.swing.filechooser.FileNameExtensionFilter;
 
 import src.Files.AnalyzeDatResults;
 import src.Files.ConvertDat;
+import src.Files.CsvWriter;
 import src.Files.DJIAssistantFile;
 import src.Files.DatConLog;
 import src.Files.DatConPopups;
 import src.Files.DatFile;
 import src.Files.FileBeingUsed;
+import src.Files.FileEnd;
+import src.Files.NotDatFile;
 import src.Files.Persist;
 import src.Files.WorkingDir;
 import src.GUI.CheckUpdates;
@@ -709,48 +712,45 @@ public class DatCon extends JPanel
         }
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws NotDatFile, IOException, FileEnd {
 
         DatConLog log = new DatConLog();
         if (!log.ok()) {
             DatConPopups.noLogFile();
             System.exit(1);
         }
-        String dataModel = System.getProperty("sun.arch.data.model");
-        if (dataModel.equals("64")) {
-            javax.swing.SwingUtilities.invokeLater(new Runnable() {
-                @Override
-                public void run() {
-                    createAndShowGUI();
-                }
-            });
-            KeyboardFocusManager.getCurrentKeyboardFocusManager()
-            .addPropertyChangeListener("permanentFocusOwner", new PropertyChangeListener()
-        {
-            public void propertyChange(final PropertyChangeEvent e)
-            {
-                if (e.getNewValue() instanceof JTextField)
-                {
-                                        SwingUtilities.invokeLater(new Runnable()
-                    {
-                        public void run()
-                        {
-                            JTextField textField = (JTextField)e.getNewValue();
-                            textField.selectAll();
-                        }
-                    });
+        
 
-                }
-            }
-        });
-        } else {
-            javax.swing.SwingUtilities.invokeLater(new Runnable() {
-                @Override
-                public void run() {
-                    DataModelDialog.createAndShowDataModelDialog();
-                }
-            });
-        }
+        DatFile df = null;
+
+		df = DatFile.createDatFile("FLY002.DAT");
+
+		df.preAnalyze();
+
+        long tickLower = df.lowestTickNo;
+        long tickUpper = df.highestTickNo;
+        long offset = 0; 
+        
+        CsvWriter csvWriter = null;
+        csvWriter = new CsvWriter("FLY002.csv");
+        
+        
+        ConvertDat convertDat = df.createConVertDat();
+
+        convertDat.tickRangeLower = tickLower;
+        convertDat.tickRangeUpper = tickUpper;
+        convertDat.timeOffset = offset;
+        convertDat.csvWriter = csvWriter;
+        convertDat.createRecordParsers();
+        
+        df.reset();
+        
+        AnalyzeDatResults results = null;
+        results = convertDat.analyze(true);
+        
+        csvWriter.close();
+        
+        System.out.print("DONE \n");
     }
 
     public DatFile getDatFile() {
